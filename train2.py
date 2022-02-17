@@ -34,8 +34,7 @@ class Encoder(pl.LightningModule):
             nn.Linear(28 * 28, 128),
             nn.ReLU(),
             nn.Linear(128, 3),
-            nn.Sigmoid(),
-            NormalizerModule()
+            nn.ReLU()
         )
 
     def forward(self, x):
@@ -86,6 +85,15 @@ eval_ds = VectorTargetDataset(
 )  # MNIST(PATH_DATASETS, train=True, download=True, transform=transforms.ToTensor())
 
 
+def compute_centroids(embeddings, classes):
+    centroids = torch.zeros((int(torch.max(classes)), embeddings.shape[1]))
+
+    for i, clas in enumerate(range(classes.max())):
+        class_embeds = embeddings[classes == clas]
+        centroid = torch.mean(class_embeds, dim=0)
+        centroids[i] = centroid
+
+    return centroids
 
 
 def compute_centroids_dataset(dataset):
