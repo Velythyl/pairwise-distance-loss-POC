@@ -66,29 +66,31 @@ class CNNEncoder(nn.Module):
     """docstring for ClassName"""
     def __init__(self):
         super(CNNEncoder, self).__init__()
-        self.encoder = nn.Sequential(
+        self.flat = nn.Flatten()
+        self.fc1 = nn.Sequential(
             nn.Linear(28 * 28, 128),
             nn.ReLU(),
+        )
+        self.fc2 = nn.Sequential(
             nn.Linear(128, 3),
             nn.ReLU(),
         )
 
     def forward(self,x):
-        out = self.layer1(x)
-        out = self.layer2(out)
-        out = out.view(out.size(0), -1)
+        out = self.flat(x)
         out = self.fc1(out)
+        out = self.fc2(out)
         return out
 
 class RelationNetwork(nn.Module):
     """docstring for RelationNetwork"""
     def __init__(self,input_size):
         super(RelationNetwork, self).__init__()
-        self.fc1 = nn.Linear(3,32)
+        self.fc1 = nn.Linear(input_size * 2,32)
         self.fc2 = nn.Linear(32,1)
 
     def forward(self,x):
-        out = self.layer1(x)
+        out = self.fc1(x)
         out = F.relu(out)
         out = F.sigmoid(self.fc2(out))
 
@@ -117,7 +119,7 @@ def main():
     print("init neural networks")
 
     feature_encoder = CNNEncoder()
-    relation_network = RelationNetwork(FEATURE_DIM)
+    relation_network = RelationNetwork(3)
 
     #feature_encoder.apply(weights_init)
     #relation_network.apply(weights_init)
@@ -162,17 +164,24 @@ def main():
         batches, batch_labels = train_loader2.__iter__().next()
 
         # calculate features
-        sample_features = feature_encoder(Variable(samples).cuda(GPU)) # half x 32 ?
-        batch_features = feature_encoder(Variable(batches).cuda(GPU)) # half x 32 ?
+        sample_features = feature_encoder(samples.cuda(GPU)) # half x 32 ?
+        batch_features = feature_encoder(batches.cuda(GPU)) # half x 32 ?
 
         # calculate relations
         # each batch sample link to every samples to calculate relations
         # to form a 100x128 matrix for relation network
+        # (charlie) these 3 lines are just ZSL/FSL stuff, right?
         #sample_features_ext = sample_features.unsqueeze(0).repeat(BATCH_NUM_PER_CLASS*CLASS_NUM,1,1,1,1)
         #batch_features_ext = batch_features.unsqueeze(0).repeat(SAMPLE_NUM_PER_CLASS*CLASS_NUM,1,1,1,1)
         #batch_features_ext = torch.transpose(batch_features_ext,0,1)
-        relation_pairs = torch.cat((sample_features,batch_features),2).view(-1,32*2,19,19)
-        relations = relation_network(relation_pairs).view(-1,CLASS_NUM*SAMPLE_NUM_PER_CLASS)
+
+        relation_pairs = torch.cat((sample_features,batch_features),-1)
+        relations = relation_network(relation_pairs)
+
+        # (charlie) todo get the vector labels here
+        # for MNIST, cosine similarity is wonky, because all my targets are about in the same direction (noised_class, noised_class) ~ (1,1)
+        # so here we will use a standard L2 norm
+        target_relations = torch.norm()# F.cosine_similarity(sample_labels, batch_labels)
 
         mse = nn.MSELoss().cuda(GPU)
         one_hot_labels = Variable(torch.zeros(BATCH_NUM_PER_CLASS*CLASS_NUM, CLASS_NUM).scatter_(1, batch_labels.view(-1,1), 1)).cuda(GPU)
