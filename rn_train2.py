@@ -20,6 +20,7 @@ from torch.utils.data import DataLoader
 from torchvision.datasets import MNIST
 from torchvision.transforms import transforms
 
+import eval_model
 from datasets import VectorTargetDataset
 
 parser = argparse.ArgumentParser(description="One Shot Visual Recognition")
@@ -181,11 +182,16 @@ def main():
         # (charlie) todo get the vector labels here
         # for MNIST, cosine similarity is wonky, because all my targets are about in the same direction (noised_class, noised_class) ~ (1,1)
         # so here we will use a standard L2 norm
-        target_relations = torch.norm()# F.cosine_similarity(sample_labels, batch_labels)
+        def batch_distance(a, b):
+            diff = a - b
+            pow = diff ** 2
+            dist = torch.sum(pow, dim=1)
+            return dist.cuda(GPU)
+        target_relations = batch_distance(sample_labels, batch_labels) #torch.dist(sample_labels, batch_labels, dim=1) # F.cosine_similarity(sample_labels, batch_labels)
 
         mse = nn.MSELoss().cuda(GPU)
-        one_hot_labels = Variable(torch.zeros(BATCH_NUM_PER_CLASS*CLASS_NUM, CLASS_NUM).scatter_(1, batch_labels.view(-1,1), 1)).cuda(GPU)
-        loss = mse(relations,one_hot_labels)
+        #one_hot_labels = Variable(torch.zeros(BATCH_NUM_PER_CLASS*CLASS_NUM, CLASS_NUM).scatter_(1, batch_labels.view(-1,1), 1)).cuda(GPU)
+        loss = mse(relations, target_relations)
 
 
         # training
@@ -203,63 +209,19 @@ def main():
 
 
         if (episode+1)%100 == 0:
-                print("episode:",episode+1,"loss",loss.data[0])
+                print("episode:",episode+1,"loss",loss.item())
 
         if episode%5000 == 0:
 
             # test
-            print("Testing...")
-            accuracies = []
-            for i in range(TEST_EPISODE):
-                total_rewards = 0
-                counter = 0
-                task = tg.MiniImagenetTask(metatest_folders,CLASS_NUM,1,15)
-                sample_dataloader = tg.get_mini_imagenet_data_loader(task,num_per_class=1,split="train",shuffle=False)
-
-                num_per_class = 3
-                test_dataloader = tg.get_mini_imagenet_data_loader(task,num_per_class=num_per_class,split="test",shuffle=True)
-                sample_images,sample_labels = sample_dataloader.__iter__().next()
-                for test_images,test_labels in test_dataloader:
-                    batch_size = test_labels.shape[0]
-                    # calculate features
-                    sample_features = feature_encoder(Variable(sample_images).cuda(GPU)) # 5x64
-                    test_features = feature_encoder(Variable(test_images).cuda(GPU)) # 20x64
-
-                    # calculate relations
-                    # each batch sample link to every samples to calculate relations
-                    # to form a 100x128 matrix for relation network
-                    sample_features_ext = sample_features.unsqueeze(0).repeat(batch_size,1,1,1,1)
-                    test_features_ext = test_features.unsqueeze(0).repeat(1*CLASS_NUM,1,1,1,1)
-                    test_features_ext = torch.transpose(test_features_ext,0,1)
-                    relation_pairs = torch.cat((sample_features_ext,test_features_ext),2).view(-1,FEATURE_DIM*2,19,19)
-                    relations = relation_network(relation_pairs).view(-1,CLASS_NUM)
-
-                    _,predict_labels = torch.max(relations.data,1)
-
-                    rewards = [1 if predict_labels[j]==test_labels[j] else 0 for j in range(batch_size)]
-
-                    total_rewards += np.sum(rewards)
-                    counter += batch_size
-                accuracy = total_rewards/1.0/counter
-                accuracies.append(accuracy)
-
-            test_accuracy,h = mean_confidence_interval(accuracies)
-
-            print("test accuracy:",test_accuracy,"h:",h)
-
-            if test_accuracy > last_accuracy:
-
-                # save networks
-                torch.save(feature_encoder.state_dict(),str("./models/miniimagenet_feature_encoder_" + str(CLASS_NUM) +"way_" + str(SAMPLE_NUM_PER_CLASS) +"shot.pkl"))
-                torch.save(relation_network.state_dict(),str("./models/miniimagenet_relation_network_"+ str(CLASS_NUM) +"way_" + str(SAMPLE_NUM_PER_CLASS) +"shot.pkl"))
-
-                print("save networks for episode:",episode)
-
-                last_accuracy = test_accuracy
-
-
-
-
+            eval_ds = VectorTargetDataset(
+                MNIST(os.getcwd(), train=False, download=True, transform=transforms.ToTensor()),
+                dataset_seed=0,
+                vector_width=2,
+                gaussian_instead_of_uniform=True,
+                scale=0.5
+            )  # MNIST(PATH_DATASETS, train=True, download=True, transform=transforms.ToTensor())
+            eval_model.main(feature_encoder, eval_ds, GPU)
 
 if __name__ == '__main__':
     main()

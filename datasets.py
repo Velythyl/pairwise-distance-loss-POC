@@ -16,7 +16,7 @@ class VectorTargetDataset(VisionDataset):
 
     def __init__(
             self,
-            vision_dataset, dataset_seed, vector_width, gaussian_instead_of_uniform, scale=0.8
+            vision_dataset, dataset_seed, vector_width, gaussian_instead_of_uniform, scale=0.1
     ) -> None:
         self.vision_dataset = vision_dataset
         self.seed = dataset_seed
@@ -57,7 +57,7 @@ class VectorTargetDataset(VisionDataset):
     def __getitem__(self, index: int) -> Any:
         item, target = self.vision_dataset.__getitem__(index)
 
-        return item.float(), self.targets[index].float()
+        return item.float(), self.targets[index].float(), self.classes[index]
 
     def __len__(self) -> int:
         return len(self.vision_dataset)

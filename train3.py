@@ -15,16 +15,26 @@ import eval_model
 from datasets import VectorTargetDataset
 
 
+def batch_distance(a, b):
+    diff = a - b
+    pow = diff ** 2
+    dist = torch.sum(pow, dim=1)
+    return dist.cuda(GPU)
+
+
 def pairwise_distance_loss(embeddings, targets, no_loss=False):
+    batch_size = embeddings.shape[0]
+    half_batch = batch_size // 2
+
     embeddings = F.normalize(embeddings)
 
-    target_gram = targets @ targets.T
-    embed_gram = embeddings @ embeddings.T
+    embeds_1, embeds_2 = embeddings[:half_batch], embeddings[half_batch:]
+    targets_1, targets_2 = targets[:half_batch], targets[half_batch:]
 
-    return F.mse_loss(embed_gram, target_gram)
+    embed_dist = batch_distance(embeds_1, embeds_2)
+    target_dist = batch_distance(targets_1, targets_2)
 
-    loss = torch.cdist(target_gram, embed_gram)
-    return loss.sum()
+    return F.mse_loss(embed_dist, target_dist)
 
 
 class NormalizerModule(nn.Module):

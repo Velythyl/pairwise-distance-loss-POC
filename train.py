@@ -11,15 +11,18 @@ from torch.utils.data import DataLoader, random_split
 from torchvision import transforms
 import pytorch_lightning as pl
 
+import eval_model
 from datasets import VectorTargetDataset
 
 
 def pairwise_distance_loss(embeddings, targets, no_loss=False):
+    embeddings = F.normalize(embeddings)
+
     target_gram = targets @ targets.T
     embed_gram = embeddings @ embeddings.T
 
     loss = torch.cdist(target_gram, embed_gram)
-    return loss.mean()
+    return loss.sum()
 
 
 class NormalizerModule(nn.Module):
@@ -28,15 +31,15 @@ class NormalizerModule(nn.Module):
 
 
 class Encoder(pl.LightningModule):
-    def __init__(self):
+    def __init__(self, loss_function):
         super().__init__()
         self.encoder = nn.Sequential(
             nn.Linear(28 * 28, 128),
             nn.ReLU(),
             nn.Linear(128, 3),
-            nn.Sigmoid(),
-            NormalizerModule()
+            nn.ReLU(),
         )
+        self.loss_function = loss_function
 
     def forward(self, x):
         # in lightning, forward defines the prediction/inference actions
@@ -46,26 +49,31 @@ class Encoder(pl.LightningModule):
 
     def training_step(self, batch, batch_idx):
         # training_step defines the train loop. It is independent of forward
-        x, y = batch
+        x, y, z = batch
         x = x.view(x.size(0), -1)
-        z = self.encoder(x)
+        embeds = self.encoder(x)
 
-        loss = pairwise_distance_loss(z, y)
+        loss = self.loss_function(embeds,y)
 
-        self.log("train_loss", loss)
+        self.log("train_loss", loss.item())
         return loss
 
     def configure_optimizers(self):
         optimizer = torch.optim.Adam(self.parameters(), lr=1e-3)
         return optimizer
+    #def validation_step(self, *args, **kwargs):
+    #    pass
+    #def on_validation_end(self) -> None:
+    #    eval_model.main(self, eval_ds, GPU)
 
 
 PATH_DATASETS = os.environ.get("PATH_DATASETS", ".")
 AVAIL_GPUS = min(1, torch.cuda.device_count())
+GPU = 0
 BATCH_SIZE = 256 if AVAIL_GPUS else 64
 
 # Init our model
-mnist_model = Encoder()
+mnist_model = Encoder(pairwise_distance_loss)
 
 # Init DataLoader from MNIST Dataset
 train_ds = VectorTargetDataset(
@@ -85,29 +93,6 @@ eval_ds = VectorTargetDataset(
     scale=0.5
 )  # MNIST(PATH_DATASETS, train=True, download=True, transform=transforms.ToTensor())
 
-
-
-
-def compute_centroids_dataset(dataset):
-    targets = dataset.targets
-    classes = dataset.classes
-    return compute_centroids(targets, classes)
-
-
-def compute_centroids_model(model, dataset):
-    with torch.no_grad():
-        embeddings = model(dataset.data)
-        classes = dataset.classes
-        return compute_centroids(embeddings, classes)
-
-
-# true_centroids = compute_centroids_dataset(train_ds)
-# true_centroids = eval_ds.classes
-pred_centroids = compute_centroids_model(mnist_model, eval_ds)
-final_distance = (torch.cdist(pred_centroids, pred_centroids) * 100).int()
-print(final_distance)
-# print(pairwise_distance_loss(true_centroids, pred_centroids, no_loss=True))
-
 # Initialize a trainer
 trainer = Trainer(
     gpus=AVAIL_GPUS,
@@ -117,11 +102,5 @@ trainer = Trainer(
 
 # Train the model ⚡
 trainer.fit(mnist_model, train_loader)
+eval_model.main(mnist_model.cuda(GPU), eval_ds, GPU)
 
-pred_centroids = compute_centroids_model(mnist_model, eval_ds)
-final_distance = (torch.cdist(pred_centroids, pred_centroids) * 100).int()
-print(final_distance)
-
-pred_centroids = compute_centroids_dataset(eval_ds)
-final_distance = (torch.cdist(pred_centroids, pred_centroids) * 100).int()
-print(final_distance)
