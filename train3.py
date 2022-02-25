@@ -26,6 +26,9 @@ def pairwise_distance_loss(embeddings, targets, no_loss=False):
     batch_size = embeddings.shape[0]
     half_batch = batch_size // 2
 
+    perm = torch.randperm(batch_size)
+    embeddings = embeddings[perm]
+
     embeddings = F.normalize(embeddings)
 
     embeds_1, embeds_2 = embeddings[:half_batch], embeddings[half_batch:]

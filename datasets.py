@@ -9,48 +9,56 @@ from torch.utils.data import random_split
 from torchvision.datasets import MNIST, VisionDataset
 from torchvision.transforms import transforms
 from tqdm import tqdm
-
+import torch.nn.functional as F
 
 class VectorTargetDataset(VisionDataset):
     _repr_indent = 4
 
     def __init__(
             self,
-            vision_dataset, dataset_seed, vector_width, gaussian_instead_of_uniform, scale=0.1
+            vision_dataset, dataset_seed, vector_width, gaussian_instead_of_uniform, scale=0.1, recenter=False
     ) -> None:
         self.vision_dataset = vision_dataset
         self.seed = dataset_seed
-        self.vector_width = vector_width
-        self.gaussian_instead_of_uniform = gaussian_instead_of_uniform
-        self.scale = scale
 
         self.classes = self.vision_dataset.targets
-        self.targets = self.noise_targets()
+        self.targets = self.noise_targets(scale, vector_width, dataset_seed, gaussian_instead_of_uniform, recenter)
         self.data = self.vision_dataset.data.float()
 
-    def noise_targets(self):
-        targets = np.array(self.classes)
-        target_matrix = np.array([targets] * self.vector_width).T
+    def noise_targets(self, scale, vector_width, seed, gaussian_instead_of_uniform, recenter):
+        classes = self.classes
+        highest_class = torch.max(classes)
+        lowest_class = torch.min(classes)
+        assert lowest_class == 0
 
-        noise_shape = (len(targets), self.vector_width)
-        rng = default_rng(self.seed)
-        if self.gaussian_instead_of_uniform:
-            deterministic_noise_vectors = rng.normal(loc=0.0, scale=self.scale, size=noise_shape)
+        targets = np.array(classes)
+        target_matrix = np.array([targets] * vector_width, dtype=np.float).T
+
+        noise_shape = (len(targets), vector_width)
+        rng = default_rng(seed)
+        if gaussian_instead_of_uniform:
+            deterministic_noise_vectors = rng.normal(loc=0.0, scale=scale, size=noise_shape)
         else:
-            deterministic_noise_vectors = rng.uniform(low=-self.scale, high=self.scale, size=noise_shape)
+            deterministic_noise_vectors = rng.uniform(low=-scale, high=scale, size=noise_shape)
 
         noised_targets = target_matrix + deterministic_noise_vectors
 
+        if recenter:
+            assert vector_width == 2
+            # take [0-MAX_CLASS] classes and makes them into evenly-angled vectors
+            angle_per_class = 2*np.pi / highest_class
+            angled_classes = angle_per_class * noised_targets
+            noised_targets[:,0] = np.sin(angled_classes[:,0])
+            noised_targets[:,1] = np.cos(angled_classes[:,1])
+
         noised_targets = torch.from_numpy(noised_targets).float()
 
-        highest_class = torch.max(self.classes)
-        lowest_class = 0
-        assert torch.min(self.classes) == 0
+        #max_noised = highest_class + scale
+        #min_noised = lowest_class - scale
+        #noised_targets = (torch.clip(noised_targets, min_noised, max_noised) - min_noised) / (
+        #        max_noised - min_noised)
 
-        max_noised = highest_class + self.scale
-        min_noised = lowest_class - self.scale
-        noised_targets = (torch.clip(noised_targets, min_noised, max_noised) - min_noised) / (
-                max_noised - min_noised)
+        noised_targets = F.normalize(noised_targets, dim=1)
 
         return noised_targets
 

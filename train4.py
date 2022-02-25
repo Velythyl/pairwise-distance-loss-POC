@@ -16,12 +16,12 @@ from datasets import VectorTargetDataset
 
 
 def pairwise_distance_loss(embeddings, targets, no_loss=False):
-   # embeddings = F.normalize(embeddings)
+    embeddings = F.normalize(embeddings)
 
-    target_gram = torch.cdist(targets, targets)
-    embed_gram = torch.cdist(embeddings, embeddings)
+    target_gram = targets @ targets.T
+    embed_gram = embeddings @ embeddings.T
 
-    return F.mse_loss(target_gram, embed_gram)
+    return F.mse_loss(embed_gram, target_gram)
 
 
 class NormalizerModule(nn.Module):
@@ -36,7 +36,7 @@ class Encoder(pl.LightningModule):
             nn.Linear(28 * 28, 128),
             nn.ReLU(),
             nn.Linear(128, 3),
-            nn.ReLU(),
+            nn.Tanh(),
         )
         self.loss_function = loss_function
 
@@ -80,7 +80,8 @@ train_ds = VectorTargetDataset(
     dataset_seed=0,
     vector_width=2,
     gaussian_instead_of_uniform=True,
-    scale=0.5
+    scale=0.5,
+    recenter=True
 )  # MNIST(PATH_DATASETS, train=True, download=True, transform=transforms.ToTensor())
 train_loader = DataLoader(train_ds, batch_size=BATCH_SIZE)
 
@@ -89,7 +90,8 @@ eval_ds = VectorTargetDataset(
     dataset_seed=0,
     vector_width=2,
     gaussian_instead_of_uniform=True,
-    scale=0.5
+    scale=0.5,
+    recenter=True
 )  # MNIST(PATH_DATASETS, train=True, download=True, transform=transforms.ToTensor())
 
 # Initialize a trainer

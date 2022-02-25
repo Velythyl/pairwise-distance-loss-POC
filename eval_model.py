@@ -45,14 +45,14 @@ def main_(embeddings, targets, classes):
     pred_centroids = torch.from_numpy(pred_centroids)
     true_centroids = torch.from_numpy(true_centroids)
 
-    print("Pred pairwise distance")
+    #print("Pred pairwise distance")
     pred_centroids = torch.nn.functional.normalize(pred_centroids)
     pred_distances = torch.cdist(pred_centroids, pred_centroids)
-    print(pred_distances)
+    #print(pred_distances)
 
-    print("True pairwise distance")
+    #print("True pairwise distance")
     true_distances = torch.cdist(true_centroids, true_centroids)
-    print(true_distances)
+    #print(true_distances)
 
     loss = mse_loss(pred_distances, true_distances)
     print("Pairwise distance MSE")
