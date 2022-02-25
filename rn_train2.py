@@ -87,13 +87,11 @@ class RelationNetwork(nn.Module):
     """docstring for RelationNetwork"""
     def __init__(self,input_size):
         super(RelationNetwork, self).__init__()
-        self.fc1 = nn.Linear(input_size * 2,32)
-        self.fc2 = nn.Linear(32,1)
+        self.fc1 = nn.Linear(input_size * 2,1)
 
     def forward(self,x):
         out = self.fc1(x)
-        out = F.relu(out)
-        out = F.sigmoid(self.fc2(out))
+        out = F.sigmoid(out)
 
         return out
 

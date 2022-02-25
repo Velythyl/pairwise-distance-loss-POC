@@ -16,12 +16,15 @@ from datasets import VectorTargetDataset
 
 
 def pairwise_distance_loss(embeddings, targets, no_loss=False):
-   # embeddings = F.normalize(embeddings)
+    embeddings = F.normalize(embeddings)
 
-    target_gram = torch.cdist(targets, targets)
+    target_gram = torch.cdist(targets,targets)   # Gram matrix
     embed_gram = torch.cdist(embeddings, embeddings)
 
-    return F.mse_loss(target_gram, embed_gram)
+    return F.mse_loss(embed_gram, target_gram)
+
+    loss = torch.cdist(target_gram, embed_gram)
+    return loss.sum()
 
 
 class NormalizerModule(nn.Module):

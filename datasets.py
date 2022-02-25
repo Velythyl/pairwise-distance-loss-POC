@@ -46,19 +46,22 @@ class VectorTargetDataset(VisionDataset):
         if recenter:
             assert vector_width == 2
             # take [0-MAX_CLASS] classes and makes them into evenly-angled vectors
-            angle_per_class = 2*np.pi / highest_class
+            angle_per_class = 2*np.pi / highest_class + 1 # (+1 because of the 0th class)
             angled_classes = angle_per_class * noised_targets
             noised_targets[:,0] = np.sin(angled_classes[:,0])
             noised_targets[:,1] = np.cos(angled_classes[:,1])
+            noised_targets = torch.from_numpy(noised_targets).float()
+            noised_targets = F.normalize(noised_targets, dim=1)
+        else:
+            noised_targets = torch.from_numpy(noised_targets).float()
+            max_noised = highest_class + scale
+            min_noised = lowest_class - scale
+            noised_targets = (torch.clip(noised_targets, min_noised, max_noised) - min_noised) / (
+                    max_noised - min_noised)
 
-        noised_targets = torch.from_numpy(noised_targets).float()
 
-        #max_noised = highest_class + scale
-        #min_noised = lowest_class - scale
-        #noised_targets = (torch.clip(noised_targets, min_noised, max_noised) - min_noised) / (
-        #        max_noised - min_noised)
 
-        noised_targets = F.normalize(noised_targets, dim=1)
+       #
 
         return noised_targets
 

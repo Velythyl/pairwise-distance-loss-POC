@@ -18,7 +18,7 @@ from datasets import VectorTargetDataset
 def pairwise_distance_loss(embeddings, targets, no_loss=False):
     embeddings = F.normalize(embeddings)
 
-    target_gram = targets @ targets.T
+    target_gram = targets @ targets.T   # Gram matrix
     embed_gram = embeddings @ embeddings.T
 
     return F.mse_loss(embed_gram, target_gram)
@@ -83,7 +83,7 @@ train_ds = VectorTargetDataset(
     dataset_seed=0,
     vector_width=2,
     gaussian_instead_of_uniform=True,
-    scale=0.5
+    scale=0.1
 )  # MNIST(PATH_DATASETS, train=True, download=True, transform=transforms.ToTensor())
 train_loader = DataLoader(train_ds, batch_size=BATCH_SIZE)
 
@@ -92,7 +92,7 @@ eval_ds = VectorTargetDataset(
     dataset_seed=0,
     vector_width=2,
     gaussian_instead_of_uniform=True,
-    scale=0.5
+    scale=0.1
 )  # MNIST(PATH_DATASETS, train=True, download=True, transform=transforms.ToTensor())
 
 # Initialize a trainer

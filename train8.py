@@ -14,14 +14,23 @@ import pytorch_lightning as pl
 import eval_model
 from datasets import VectorTargetDataset
 
+def pairwise_cosine_embedding(mat, margin=0.5):
+    gram = 1 - mat @ mat.T - margin
+
+    zeros = torch.zeros(gram.shape).to(GPU)
+
+    #cosine_loss = torch.maximum(zeros, gram-margin)
+
+    #cosine_loss = 1 - gram
+    return gram
 
 def pairwise_distance_loss(embeddings, targets, no_loss=False):
-   # embeddings = F.normalize(embeddings)
+    embeddings = F.normalize(embeddings)
 
-    target_gram = torch.cdist(targets, targets)
-    embed_gram = torch.cdist(embeddings, embeddings)
+    target_gram = pairwise_cosine_embedding(targets)#1 - targets @ targets.T
+    embed_gram = pairwise_cosine_embedding(embeddings)#1 - embeddings @ embeddings.T
 
-    return F.mse_loss(target_gram, embed_gram)
+    return F.mse_loss(embed_gram, target_gram)
 
 
 class NormalizerModule(nn.Module):
@@ -44,6 +53,7 @@ class Encoder(pl.LightningModule):
         # in lightning, forward defines the prediction/inference actions
         x = x.view(x.size(0), -1)
         embedding = self.encoder(x)
+        embedding = F.normalize(embedding)
         return embedding
 
     def training_step(self, batch, batch_idx):
@@ -51,6 +61,7 @@ class Encoder(pl.LightningModule):
         x, y, z = batch
         x = x.view(x.size(0), -1)
         embeds = self.encoder(x)
+        #embeds = F.normalize(embeds)
 
         loss = self.loss_function(embeds,y)
 
@@ -80,16 +91,19 @@ train_ds = VectorTargetDataset(
     dataset_seed=0,
     vector_width=2,
     gaussian_instead_of_uniform=True,
-    scale=0.1
+    scale=0.1,
+    recenter=True
 )  # MNIST(PATH_DATASETS, train=True, download=True, transform=transforms.ToTensor())
 train_loader = DataLoader(train_ds, batch_size=BATCH_SIZE)
+
 
 eval_ds = VectorTargetDataset(
     MNIST(os.getcwd(), train=False, download=True, transform=transforms.ToTensor()),
     dataset_seed=0,
     vector_width=2,
     gaussian_instead_of_uniform=True,
-    scale=0.1
+    scale=0.1,
+    recenter=True
 )  # MNIST(PATH_DATASETS, train=True, download=True, transform=transforms.ToTensor())
 
 # Initialize a trainer

@@ -80,7 +80,7 @@ train_ds = VectorTargetDataset(
     dataset_seed=0,
     vector_width=2,
     gaussian_instead_of_uniform=True,
-    scale=0.5,
+    scale=0.1,
     recenter=True
 )  # MNIST(PATH_DATASETS, train=True, download=True, transform=transforms.ToTensor())
 train_loader = DataLoader(train_ds, batch_size=BATCH_SIZE)
@@ -90,7 +90,7 @@ eval_ds = VectorTargetDataset(
     dataset_seed=0,
     vector_width=2,
     gaussian_instead_of_uniform=True,
-    scale=0.5,
+    scale=0.1,
     recenter=True
 )  # MNIST(PATH_DATASETS, train=True, download=True, transform=transforms.ToTensor())
 

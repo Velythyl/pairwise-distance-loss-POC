@@ -3,13 +3,9 @@ import sklearn.metrics
 import torch
 from torch.nn.functional import mse_loss
 
+import plot
+from utils import tensor2numpy
 
-def tensor2numpy(tensor):
-    try:
-        tensor = tensor.cpu().numpy()
-    except:
-        pass
-    return tensor
 
 def compute_centroids(embeddings, classes):
     embeddings = tensor2numpy(embeddings)
@@ -42,6 +38,9 @@ def main_(embeddings, targets, classes):
     print("Silhouette score")
     print(sklearn.metrics.silhouette_score(embeddings, classes))
 
+    print("Best possible silhouette score")
+    print(sklearn.metrics.silhouette_score(targets, classes))
+
     pred_centroids = torch.from_numpy(pred_centroids)
     true_centroids = torch.from_numpy(true_centroids)
 
@@ -67,4 +66,6 @@ def main(model, eval_dataset, GPU):
 
         embeddings = model(data).cpu().numpy()
 
-        return main_(embeddings, targets, classes)
+        main_(embeddings, targets, classes)
+
+        plot.main(embeddings, targets, classes)
