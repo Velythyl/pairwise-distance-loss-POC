@@ -50,6 +50,9 @@ class VectorTargetDataset(VisionDataset):
             angled_classes = angle_per_class * noised_targets
             noised_targets[:,0] = np.sin(angled_classes[:,0])
             noised_targets[:,1] = np.cos(angled_classes[:,1])
+
+            #noised_targets[target_matrix == 0] = 0.5  # todo temp
+
             noised_targets = torch.from_numpy(noised_targets).float()
             noised_targets = F.normalize(noised_targets, dim=1)
         else:
