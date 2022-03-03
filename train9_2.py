@@ -54,7 +54,7 @@ class Encoder(pl.LightningModule):
         # in lightning, forward defines the prediction/inference actions
         x = x.view(x.size(0), -1)
         embedding = self.encoder(x)
-        embedding = F.normalize(embedding)
+        #embedding = F.normalize(embedding)
         return embedding
 
     def training_step(self, batch, batch_idx):

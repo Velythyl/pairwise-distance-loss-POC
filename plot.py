@@ -34,7 +34,7 @@ def plot_2d(targets, classes):
 
     plt.show()
 
-def plot_3d(targets, classes):
+def plot_3d(targets, classes, angled):
     targets = tensor2numpy(targets)
     classes = tensor2numpy(classes)
 
@@ -46,6 +46,8 @@ def plot_3d(targets, classes):
     ax = plt.axes(projection ="3d")
     # Creating plot
     ax.scatter3D(x, y, z, c=classes, cmap=matplotlib.colors.ListedColormap(colors))
+    if angled:
+        ax.view_init(30, 60)
 
 
     #plt.scatter(x, y, c=classes, cmap=))
@@ -58,7 +60,8 @@ def plot_3d(targets, classes):
 
 def main(embeddings, targets, classes):
     plot_2d(targets, classes)
-    plot_3d(embeddings, classes)
+    plot_3d(embeddings, classes, angled=True)
+    plot_3d(embeddings, classes, angled=False)
 
 if __name__ == "__main__":
     def pairwise_distance_loss(embeddings, targets, no_loss=False):

@@ -15,21 +15,20 @@ import eval_model
 from datasets import VectorTargetDataset
 
 
-def pairwise_cosine_embedding(mat, margin=0.5):
+def pairwise_cosine_embedding(mat, margin=0.2):
     gram = mat @ mat.T
 
-    zeros = torch.zeros(gram.shape).to(GPU)
+    abs_gram = torch.abs(gram)
 
-    cosine_loss = torch.maximum(zeros, gram-margin)
+    margin_gram = torch.maximum(torch.zeros_like(abs_gram), abs_gram - margin)
 
-    #cosine_loss = 1 - gram
-    return 1-cosine_loss
+    return margin_gram
 
 def pairwise_distance_loss(embeddings, targets, no_loss=False):
     #embeddings = F.normalize(embeddings)
 
-    target_gram = targets @ targets.T
-    embed_gram = embeddings @ embeddings.T
+    target_gram = pairwise_cosine_embedding(embeddings) # torch.abs(targets @ targets.T)
+    embed_gram = pairwise_cosine_embedding(targets) #torch.abs(embeddings @ embeddings.T)
 
     return F.mse_loss(embed_gram, target_gram)
 
@@ -45,7 +44,7 @@ class Encoder(pl.LightningModule):
         self.encoder = nn.Sequential(
             nn.Linear(28 * 28, 128),
             nn.ReLU(),
-            nn.Linear(128, 3),
+            nn.Linear(128, 64),
             nn.ReLU(),
         )
         self.loss_function = loss_function
@@ -93,7 +92,7 @@ train_ds = VectorTargetDataset(
     vector_width=2,
     gaussian_instead_of_uniform=True,
     scale=0.1,
-    recenter=True
+    recenter=False
 )  # MNIST(PATH_DATASETS, train=True, download=True, transform=transforms.ToTensor())
 train_loader = DataLoader(train_ds, batch_size=BATCH_SIZE)
 
@@ -104,7 +103,7 @@ eval_ds = VectorTargetDataset(
     vector_width=2,
     gaussian_instead_of_uniform=True,
     scale=0.1,
-    recenter=True
+    recenter=False
 )  # MNIST(PATH_DATASETS, train=True, download=True, transform=transforms.ToTensor())
 
 # Initialize a trainer

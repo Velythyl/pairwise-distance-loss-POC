@@ -26,12 +26,18 @@ def pairwise_cosine_embedding(mat, margin=0.5):
     return 1-cosine_loss
 
 def pairwise_distance_loss(embeddings, targets, no_loss=False):
-    #embeddings = F.normalize(embeddings)
+    embeddings = F.normalize(embeddings)
 
-    target_gram = targets @ targets.T
+    target_gram_none = (targets @ targets.T)
+
+    x = torch.min(target_gram_none)
+    y = torch.max(target_gram_none)
+
+    target_gram_p1 = (1 + targets @ targets.T)
+    target_gram_full = (1 + targets @ targets.T)/2
     embed_gram = embeddings @ embeddings.T
 
-    return F.mse_loss(embed_gram, target_gram)
+    return F.mse_loss(embed_gram, target_gram_full)
 
 
 class NormalizerModule(nn.Module):
